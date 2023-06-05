@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 @app.route('/', methods=['POST'])
 def upload():
@@ -14,7 +15,7 @@ def upload():
         return 'No image file uploaded', 400
 
     image = request.files['image']
-    if image.filename == '':
+    if image.filename == '': 
         return 'No image file selected', 400
 
     # save original image
@@ -33,11 +34,12 @@ def upload():
     imgHeight = orig_img.shape[0]
     imgRatio = imgWidth/imgHeight
 
-    #
+    # copy -> blurred
     copy_img = np.copy(orig_img)
+    copy_img_2 = np.copy(orig_img)
 
-    # input image dimensions for the network
-    inHeight = 368
+    # input image dimensions for the network, 368
+    inHeight = 500
     inWidth = int(((imgRatio * inHeight) * 8) // 8)
     inpBlob = cv2.dnn.blobFromImage(orig_img, 1.0 / 255, (inWidth, inHeight), (0, 0, 0), swapRB=False, crop=False)
 
@@ -63,22 +65,48 @@ def upload():
     topFPoints = [points[4], points[8], points[12], points[16], points[20]]
     downFPoints = [points[3], points[7], points[11], points[15], points[19]]
 
-    # draw oval on every fingerprint
-    for i in range(5):
-        topX = topFPoints[i][0]
-        topY = topFPoints[i][1]
+    distance_0to1 = dist((topFPoints[0][0], topFPoints[0][1]), (topFPoints[1][0], topFPoints[1][1]))
 
-        downX = downFPoints[i][0]
-        downY = downFPoints[i][1]
+    distance_0to3 = dist((topFPoints[0][0], topFPoints[0][1]), (topFPoints[3][0], topFPoints[3][1]))
+    distance_0to4 = dist((topFPoints[0][0], topFPoints[0][1]), (topFPoints[4][0], topFPoints[4][1]))
 
-        centerPoint = (int((topX + downX) / 2), int((topY + downY) / 2))
+    if distance_0to1 > distance_0to3 or distance_0to1 > distance_0to4:
+        # draw oval on two fingerprint
+        for i in range(1, 3):
+            topX = topFPoints[i][0]
+            topY = topFPoints[i][1]
 
-        distance = dist((topX, topY), (downX, downY))
-        axesLength = (int((distance) / 2), int(distance / 4))
+            downX = downFPoints[i][0]
+            downY = downFPoints[i][1]
 
-        angle = int(math.atan2(topY - downY, topX - downX) * 180 / math.pi)
+            centerPoint = (int((topX + downX) / 2), int((topY + downY) / 2))
 
-        cv2.ellipse(copy_img, centerPoint, axesLength, angle, 0, 360, (0, 0, 0), -1)
+            distance = dist((topX, topY), (downX, downY))
+            axesLength = (int((distance) / 2), int(distance / 4))
+
+            angle = int(math.atan2(topY - downY, topX - downX) * 180 / math.pi)
+
+            cv2.ellipse(copy_img, centerPoint, axesLength, angle, 0, 360, (0, 0, 0), -1)
+            cv2.ellipse(copy_img_2, centerPoint, axesLength, angle, 0, 360, (0, 0, 255), 15)
+
+    else:
+        # draw oval on every fingerprint
+        for i in range(5):
+            topX = topFPoints[i][0]
+            topY = topFPoints[i][1]
+
+            downX = downFPoints[i][0]
+            downY = downFPoints[i][1]
+
+            centerPoint = (int((topX + downX) / 2), int((topY + downY) / 2))
+
+            distance = dist((topX, topY), (downX, downY))
+            axesLength = (int((distance) / 2), int(distance / 4))
+
+            angle = int(math.atan2(topY - downY, topX - downX) * 180 / math.pi)
+
+            cv2.ellipse(copy_img, centerPoint, axesLength, angle, 0, 360, (0, 0, 0), -1)
+            cv2.ellipse(copy_img_2, centerPoint, axesLength, angle, 0, 360, (0, 0, 255), 10)
 
     bit_xor = cv2.bitwise_xor(copy_img, orig_img)
     # cv2.imshow('Output-bit_xor', bit_xor)
@@ -89,6 +117,8 @@ def upload():
     bit_or = cv2.bitwise_or(copy_img, blurred)
     # cv2.imshow('Output-bit_or', bit_or)
     cv2.imwrite('blurred_image.jpg', bit_or)
+    cv2.imwrite('red_line_image.jpg', copy_img_2)
+    
 
     cv2.waitKey(0)
 
@@ -97,8 +127,14 @@ def upload():
 
 @app.route('/image', methods=['GET'])
 def send_image():
-    # 이미지 파일 경로
     image_path = 'blurred_image.jpg'
+
+    return send_file(image_path, mimetype='image/jpeg')
+
+
+@app.route('/image/red', methods=['GET'])
+def send_red_image():
+    image_path = 'red_line_image.jpg'
 
     return send_file(image_path, mimetype='image/jpeg')
 
