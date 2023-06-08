@@ -65,12 +65,11 @@ def upload():
     topFPoints = [points[4], points[8], points[12], points[16], points[20]]
     downFPoints = [points[3], points[7], points[11], points[15], points[19]]
 
-    distance_0to1 = dist((topFPoints[0][0], topFPoints[0][1]), (topFPoints[1][0], topFPoints[1][1]))
 
     distance_0to3 = dist((topFPoints[0][0], topFPoints[0][1]), (topFPoints[3][0], topFPoints[3][1]))
-    distance_0to4 = dist((topFPoints[0][0], topFPoints[0][1]), (topFPoints[4][0], topFPoints[4][1]))
+    distance_2to3 = dist((topFPoints[2][0], topFPoints[2][1]), (topFPoints[3][0], topFPoints[3][1]))
 
-    if distance_0to1 > distance_0to3 or distance_0to1 > distance_0to4:
+    if distance_2to3 > distance_0to3:
         # draw oval on two fingerprint
         for i in range(1, 3):
             topX = topFPoints[i][0]
